@@ -84,6 +84,9 @@ const createDragNDrop = (overrides: PartialModules = {}): DragNDropTestContext =
     InlineToolbar: {
       close: vi.fn(),
     },
+    BlockDrag: {
+      isDragging: false,
+    },
   };
 
   const mergedState: TestModules = {

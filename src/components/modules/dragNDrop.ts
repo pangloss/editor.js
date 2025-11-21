@@ -69,9 +69,17 @@ export default class DragNDrop extends Module {
   private async processDrop(dropEvent: DragEvent): Promise<void> {
     const {
       BlockManager,
+      BlockDrag,
       Paste,
       Caret,
     } = this.Editor;
+
+    /**
+     * Skip processing for block drag-to-reorder (handled by BlockDrag module)
+     */
+    if (BlockDrag.isDragging) {
+      return;
+    }
 
     dropEvent.preventDefault();
 
