@@ -18,6 +18,13 @@ export default class CrossBlockSelection extends Module {
   private lastSelectedBlock: Block | null = null;
 
   /**
+   * Navigation index for block navigation mode.
+   * Tracks position even when no blocks are selected, allowing up/down navigation.
+   * Set to -1 when not in navigation mode.
+   */
+  private navigationIndex: number = -1;
+
+  /**
    * Module preparation
    *
    * @returns {Promise}
@@ -62,6 +69,13 @@ export default class CrossBlockSelection extends Module {
   }
 
   /**
+   * Returns true if in block navigation mode (even without selection)
+   */
+  public get isInNavigationMode(): boolean {
+    return this.navigationIndex >= 0;
+  }
+
+  /**
    * Select a single block, entering block navigation mode.
    * Used when pressing Escape to select the current block.
    *
@@ -69,7 +83,7 @@ export default class CrossBlockSelection extends Module {
    * @param {Block} [previousBlock] - optional block to unselect first (for moving selection)
    */
   public selectBlock(block: Block, previousBlock?: Block): void {
-    const { BlockSelection } = this.Editor;
+    const { BlockManager, BlockSelection } = this.Editor;
 
     if (previousBlock) {
       previousBlock.selected = false;
@@ -77,6 +91,7 @@ export default class CrossBlockSelection extends Module {
 
     this.firstSelectedBlock = block;
     this.lastSelectedBlock = block;
+    this.navigationIndex = BlockManager.getBlockIndex(block);
 
     block.selected = true;
 
@@ -89,6 +104,68 @@ export default class CrossBlockSelection extends Module {
     block.holder.scrollIntoView({
       block: 'nearest',
     });
+  }
+
+  /**
+   * Clear block selection but stay in navigation mode.
+   * Keeps the navigation index so up/down can select adjacent blocks.
+   */
+  public clearSelectionKeepNavigation(): void {
+    const { BlockSelection } = this.Editor;
+
+    if (this.lastSelectedBlock) {
+      this.navigationIndex = this.Editor.BlockManager.getBlockIndex(this.lastSelectedBlock);
+    }
+
+    this.firstSelectedBlock = null;
+    this.lastSelectedBlock = null;
+
+    BlockSelection.clearSelection();
+  }
+
+  /**
+   * Exit navigation mode entirely
+   */
+  public exitNavigationMode(): void {
+    this.navigationIndex = -1;
+    this.firstSelectedBlock = null;
+    this.lastSelectedBlock = null;
+  }
+
+  /**
+   * Navigate from current navigation index when no blocks are selected.
+   * - Down: select block at current index
+   * - Up: select previous block, or current if at top
+   *
+   * @param {boolean} next - if true (down), select current; if false (up), select previous or current
+   * @returns {boolean} true if navigation occurred
+   */
+  public navigateFromIndex(next: boolean): boolean {
+    const { BlockManager } = this.Editor;
+
+    if (this.navigationIndex < 0) {
+      return false;
+    }
+
+    let targetIndex: number;
+
+    if (next) {
+      /** Down: select current block */
+      targetIndex = this.navigationIndex;
+    } else {
+      /** Up: select previous block, or current if at top */
+      targetIndex = this.navigationIndex > 0 ? this.navigationIndex - 1 : this.navigationIndex;
+    }
+
+    const targetBlock = BlockManager.getBlockByIndex(targetIndex);
+
+    if (targetBlock) {
+      this.selectBlock(targetBlock);
+
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -196,6 +273,7 @@ export default class CrossBlockSelection extends Module {
     }
 
     this.firstSelectedBlock = this.lastSelectedBlock = null;
+    this.navigationIndex = -1;
   }
 
   /**

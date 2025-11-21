@@ -662,10 +662,21 @@ export default class UI extends Module<UINodes> {
     }
 
     /**
-     * If no toolbar is open and blocks are selected, clear the selection (exit block navigation mode)
+     * If no toolbar is open and blocks are selected, clear the selection but stay in navigation mode
      */
     if (BlockSelection.anyBlockSelected) {
-      BlockSelection.clearSelection(event);
+      CrossBlockSelection.clearSelectionKeepNavigation();
+      _.stopEvent(event);
+
+      return;
+    }
+
+    /**
+     * If in navigation mode with no blocks selected, exit navigation mode
+     */
+    if (CrossBlockSelection.isInNavigationMode) {
+      CrossBlockSelection.exitNavigationMode();
+      _.stopEvent(event);
 
       return;
     }
@@ -687,45 +698,65 @@ export default class UI extends Module<UINodes> {
 
   /**
    * Arrow key pressed on document
-   * Handles block navigation mode when blocks are selected
+   * Handles block navigation mode when blocks are selected or in navigation mode
    *
    * @param {KeyboardEvent} event - keyboard event
    */
   private arrowPressed(event: KeyboardEvent): void {
     const { BlockSelection, CrossBlockSelection } = this.Editor;
-
-    if (!BlockSelection.anyBlockSelected) {
-      return;
-    }
-
     const isDown = event.keyCode === _.keyCodes.DOWN;
 
     /**
-     * Shift+Arrow extends the selection
+     * If blocks are selected
      */
-    if (event.shiftKey) {
-      CrossBlockSelection.toggleBlockSelectedState(isDown);
-      _.stopEvent(event);
+    if (BlockSelection.anyBlockSelected) {
+      /**
+       * Shift+Arrow extends the selection
+       */
+      if (event.shiftKey) {
+        CrossBlockSelection.toggleBlockSelectedState(isDown);
+        _.stopEvent(event);
+
+        return;
+      }
+
+      /**
+       * Arrow without Shift moves selection (only for single block)
+       */
+      const selectedBlocks = BlockSelection.selectedBlocks;
+
+      if (selectedBlocks.length !== 1) {
+        return;
+      }
+
+      const selectedBlock = selectedBlocks[0];
+      const selectedIndex = this.Editor.BlockManager.getBlockIndex(selectedBlock);
+      const targetIndex = selectedIndex + (isDown ? 1 : -1);
+
+      /** Don't wrap around - stay at edges */
+      if (targetIndex < 0 || targetIndex >= this.Editor.BlockManager.blocks.length) {
+        _.stopEvent(event);
+
+        return;
+      }
+
+      const targetBlock = this.Editor.BlockManager.getBlockByIndex(targetIndex);
+
+      if (targetBlock) {
+        CrossBlockSelection.selectBlock(targetBlock, selectedBlock);
+        _.stopEvent(event);
+      }
 
       return;
     }
 
     /**
-     * Arrow without Shift moves selection (only for single block)
+     * If in navigation mode but no blocks selected, navigate from current index
      */
-    const selectedBlocks = BlockSelection.selectedBlocks;
-
-    if (selectedBlocks.length !== 1) {
-      return;
-    }
-
-    const selectedBlock = selectedBlocks[0];
-    const selectedIndex = this.Editor.BlockManager.getBlockIndex(selectedBlock);
-    const targetBlock = this.Editor.BlockManager.getBlockByIndex(selectedIndex + (isDown ? 1 : -1));
-
-    if (targetBlock) {
-      CrossBlockSelection.selectBlock(targetBlock, selectedBlock);
-      _.stopEvent(event);
+    if (CrossBlockSelection.isInNavigationMode) {
+      if (CrossBlockSelection.navigateFromIndex(isDown)) {
+        _.stopEvent(event);
+      }
     }
   }
 
