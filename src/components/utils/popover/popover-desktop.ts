@@ -54,6 +54,11 @@ export class PopoverDesktop extends PopoverAbstract {
   private scopeElement: HTMLElement = document.body;
 
   /**
+   * If true, the first item will be automatically focused when the popover opens
+   */
+  private autoFocusFirstItem = false;
+
+  /**
    * Construct the instance
    *
    * @param params - popover params
@@ -73,6 +78,10 @@ export class PopoverDesktop extends PopoverAbstract {
 
     if (params.scopeElement !== undefined) {
       this.scopeElement = params.scopeElement;
+    }
+
+    if (params.autoFocusFirstItem === true) {
+      this.autoFocusFirstItem = true;
     }
 
     if (this.nodes.popoverContainer !== null) {
@@ -148,6 +157,10 @@ export class PopoverDesktop extends PopoverAbstract {
 
     super.show();
     this.flipper?.activate(this.flippableElements);
+
+    if (this.autoFocusFirstItem && this.flippableElements.length > 0) {
+      this.flipper?.focusFirst();
+    }
   }
 
   /**
@@ -433,6 +446,10 @@ export class PopoverDesktop extends PopoverAbstract {
       /** Update flipper items with only visible */
       this.flipper.deactivate();
       this.flipper.activate(flippableElements as HTMLElement[]);
+
+      if (this.autoFocusFirstItem && flippableElements.length > 0) {
+        this.flipper.focusFirst();
+      }
     }
   };
 

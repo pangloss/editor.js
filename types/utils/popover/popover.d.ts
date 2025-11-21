@@ -28,6 +28,12 @@ export interface PopoverParams {
   flippable?: boolean;
 
   /**
+   * True if the first item should be automatically focused when the popover opens.
+   * Useful for popovers with search where Enter should select the first result.
+   */
+  autoFocusFirstItem?: boolean;
+
+  /**
    * Popover texts overrides
    */
   messages?: PopoverMessages

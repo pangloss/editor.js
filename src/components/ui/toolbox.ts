@@ -247,6 +247,7 @@ export default class Toolbox extends EventsDispatcher<ToolboxEventMap> {
     this.popover = new PopoverClass({
       scopeElement: this.api.ui.nodes.redactor,
       searchable: true,
+      autoFocusFirstItem: true,
       messages: {
         nothingFound: this.i18nLabels.nothingFound,
         search: this.i18nLabels.filter,
