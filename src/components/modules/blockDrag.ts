@@ -338,11 +338,13 @@ export default class BlockDrag extends Module<BlockDragNodes> {
    * Clean up after drag ends (success or cancel)
    */
   private onDragEnd(): void {
+    const draggedBlock = this.draggedBlock;
+
     /**
      * Remove dragging style
      */
-    if (this.draggedBlock) {
-      this.draggedBlock.holder.classList.remove(this.CSS.blockDragging);
+    if (draggedBlock) {
+      draggedBlock.holder.classList.remove(this.CSS.blockDragging);
     }
 
     /**
@@ -356,6 +358,13 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     this.draggedBlock = null;
     this.dropTargetIndex = null;
     this.isDragging = false;
+
+    /**
+     * Reposition toolbar to the block's new location
+     */
+    if (draggedBlock) {
+      this.Editor.Toolbar.moveAndOpen(draggedBlock);
+    }
   }
 
   /**
