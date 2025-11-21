@@ -434,7 +434,11 @@ export default class Flipper {
     }
 
     const isNativeInput = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
-    const shouldHandleNativeInput = target.dataset?.flipperTabTarget === 'true' && event.key === 'Tab';
+    const isTabKey = event.key === 'Tab';
+    const isNavigationKey = event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'Enter';
+    const shouldHandleTabInInput = target.dataset?.flipperTabTarget === 'true' && isTabKey;
+    const shouldHandleNavigationInInput = target.dataset?.flipperNavigationTarget === 'true' && isNavigationKey;
+    const shouldHandleNativeInput = shouldHandleTabInInput || shouldHandleNavigationInInput;
     const isContentEditable = target.isContentEditable;
     const isInlineToolInput = target.closest('[data-link-tool-input-opened="true"]') !== null;
 
