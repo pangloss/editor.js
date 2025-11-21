@@ -25,10 +25,6 @@ export default class BlockEvents extends Module {
      */
     this.beforeKeydownProcessing(event);
 
-    if (this.handleSelectedBlocksDeletion(event)) {
-      return;
-    }
-
     /**
      * Fire keydown processor by event.keyCode
      */
@@ -77,31 +73,6 @@ export default class BlockEvents extends Module {
       event.preventDefault();
       this.commandSlashPressed();
     }
-  }
-
-  /**
-   * Tries to delete selected blocks when remove keys pressed.
-   * Note: Block selection deletion is primarily handled at the document level in UI module.
-   * This handler exists as a fallback for edge cases where block-level events fire.
-   *
-   * @param event - keyboard event
-   * @returns true if event was handled
-   */
-  private handleSelectedBlocksDeletion(event: KeyboardEvent): boolean {
-    const { BlockSelection } = this.Editor;
-    const isRemoveKey = event.keyCode === _.keyCodes.BACKSPACE || event.keyCode === _.keyCodes.DELETE;
-
-    if (!isRemoveKey || !BlockSelection.anyBlockSelected) {
-      return false;
-    }
-
-    /**
-     * Block selection deletion is handled by UI.backspacePressed at document level.
-     * Just stop the event here to prevent default block behavior.
-     */
-    _.stopEvent(event);
-
-    return true;
   }
 
   /**

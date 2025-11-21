@@ -600,49 +600,15 @@ export default class UI extends Module<UINodes> {
       return;
     }
 
-    const selectedBlocks = BlockSelection.selectedBlocks;
+    const firstSelectedIndex = BlockManager.getBlockIndex(BlockSelection.selectedBlocks[0]);
 
-    /**
-     * Single block selection (block navigation mode):
-     * Delete the block and select the adjacent one
-     */
-    if (selectedBlocks.length === 1) {
-      const blockToDelete = selectedBlocks[0];
-      const blockIndex = BlockManager.getBlockIndex(blockToDelete);
-      const nextBlock = BlockManager.getBlockByIndex(blockIndex + 1);
-      const prevBlock = BlockManager.getBlockByIndex(blockIndex - 1);
-
-      BlockSelection.clearSelection();
-      void BlockManager.removeBlock(blockToDelete);
-
-      if (nextBlock) {
-        CrossBlockSelection.selectBlock(nextBlock);
-      } else if (prevBlock) {
-        CrossBlockSelection.selectBlock(prevBlock);
-      } else {
-        /** No blocks remain, insert a default block and focus it */
-        const insertedBlock = BlockManager.insertDefaultBlockAtIndex(0, true);
-
-        Caret.setToBlock(insertedBlock, Caret.positions.START);
-      }
-
-      _.stopEvent(event);
-
-      return;
-    }
-
-    /**
-     * Multi-block selection: delete all and select the next block, or insert a default block if none remain
-     */
-    const firstSelectedIndex = BlockManager.getBlockIndex(selectedBlocks[0]);
-    const selectionPositionIndex = BlockManager.removeSelectedBlocks();
-
-    if (selectionPositionIndex === undefined) {
-      return;
-    }
-
+    BlockManager.removeSelectedBlocks();
     BlockSelection.clearSelection();
 
+    /**
+     * Select the next block at the position where deletion started,
+     * or previous if no next, or insert a default block if none remain
+     */
     const nextBlock = BlockManager.getBlockByIndex(firstSelectedIndex);
 
     if (nextBlock) {
