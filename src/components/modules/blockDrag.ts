@@ -491,5 +491,10 @@ export default class BlockDrag extends Module<BlockDragNodes> {
       : blockRect.bottom - wrapperRect.top;
 
     this.nodes.indicator.style.top = `${yPosition}px`;
+
+    /**
+     * Ensure indicator is visible (may have been hidden if cursor left window)
+     */
+    this.showIndicator();
   }
 }
