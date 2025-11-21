@@ -457,13 +457,6 @@ export default class UI extends Module<UINodes> {
 
       const hoveredBlock = (event.target as Element | null)?.closest('.ce-block');
 
-      /**
-       * Do not trigger 'block-hovered' for cross-block selection
-       */
-      if (this.Editor.BlockSelection.anyBlockSelected) {
-        return;
-      }
-
       if (!hoveredBlock) {
         return;
       }
@@ -785,8 +778,11 @@ export default class UI extends Module<UINodes> {
 
     /**
      * Clear Selection if user clicked somewhere
+     * But not if clicking on the settings toggler (drag handle) - selection should persist for multi-block drag
      */
-    this.Editor.BlockSelection.clearSelection(event);
+    if (!isClickedInsideBlockSettingsToggler) {
+      this.Editor.BlockSelection.clearSelection(event);
+    }
   }
 
   /**

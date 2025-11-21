@@ -27,12 +27,12 @@ export default class BlockDrag extends Module<BlockDragNodes> {
   }
 
   /**
-   * The block currently being dragged
+   * The blocks currently being dragged
    */
-  private draggedBlock: Block | null = null;
+  private draggedBlocks: Block[] = [];
 
   /**
-   * Index where the block would be dropped
+   * Index where the blocks would be dropped
    */
   private dropTargetIndex: number | null = null;
 
@@ -119,6 +119,27 @@ export default class BlockDrag extends Module<BlockDragNodes> {
 
     settingsButton.setAttribute('draggable', 'true');
 
+    /**
+     * Set isDragging on mousedown BEFORE dragstart fires.
+     * This prevents selection from being cleared by documentClicked handler.
+     */
+    this.readOnlyMutableListeners.on(settingsButton, 'mousedown', () => {
+      this.isDragging = true;
+    });
+
+    /**
+     * Reset isDragging on mouseup if no drag actually started.
+     * This handles the case where user clicks without dragging.
+     */
+    this.readOnlyMutableListeners.on(settingsButton, 'mouseup', () => {
+      /**
+       * If draggedBlocks is empty, no drag started - reset the flag
+       */
+      if (this.draggedBlocks.length === 0) {
+        this.isDragging = false;
+      }
+    });
+
     this.readOnlyMutableListeners.on(settingsButton, 'dragstart', (event: DragEvent) => {
       this.onDragStart(event);
     });
@@ -153,7 +174,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
    * @param event - dragstart event
    */
   private onDragStart(event: DragEvent): void {
-    const { Toolbar } = this.Editor;
+    const { Toolbar, BlockSelection } = this.Editor;
 
     /**
      * Mark that a drag is in progress
@@ -176,20 +197,32 @@ export default class BlockDrag extends Module<BlockDragNodes> {
       return;
     }
 
-    this.draggedBlock = hoveredBlock;
+    /**
+     * If multiple blocks are selected, drag all of them.
+     * Otherwise, just drag the hovered block.
+     */
+    const selectedBlocks = BlockSelection.selectedBlocks;
+
+    if (selectedBlocks.length > 1 && selectedBlocks.includes(hoveredBlock)) {
+      this.draggedBlocks = selectedBlocks;
+    } else {
+      this.draggedBlocks = [hoveredBlock];
+    }
 
     /**
      * Set data transfer to identify this as a block drag
      */
     if (event.dataTransfer) {
-      event.dataTransfer.setData('editor/block-drag', hoveredBlock.id);
+      event.dataTransfer.setData('editor/block-drag', this.draggedBlocks.map(b => b.id).join(','));
       event.dataTransfer.effectAllowed = 'move';
     }
 
     /**
-     * Apply dragging style to the block
+     * Apply dragging style to all dragged blocks
      */
-    hoveredBlock.holder.classList.add(this.CSS.blockDragging);
+    this.draggedBlocks.forEach(block => {
+      block.holder.classList.add(this.CSS.blockDragging);
+    });
 
     /**
      * Show indicator
@@ -206,7 +239,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     /**
      * Only handle our block drags
      */
-    if (!this.draggedBlock) {
+    if (this.draggedBlocks.length === 0) {
       return;
     }
 
@@ -305,7 +338,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     /**
      * Only handle our block drags
      */
-    if (!this.draggedBlock || this.dropTargetIndex === null) {
+    if (this.draggedBlocks.length === 0 || this.dropTargetIndex === null) {
       return;
     }
 
@@ -313,22 +346,73 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     event.stopPropagation();
 
     const { BlockManager } = this.Editor;
-    const fromIndex = BlockManager.blocks.indexOf(this.draggedBlock);
 
     /**
-     * Adjust target index if moving down (since source will be removed first)
+     * Sort dragged blocks by their current position (top to bottom)
      */
-    let toIndex = this.dropTargetIndex;
+    const sortedBlocks = [...this.draggedBlocks].sort((a, b) => {
+      return BlockManager.blocks.indexOf(a) - BlockManager.blocks.indexOf(b);
+    });
 
-    if (fromIndex < toIndex) {
-      toIndex--;
-    }
+    const firstDraggedIndex = BlockManager.blocks.indexOf(sortedBlocks[0]);
+    const targetIndex = this.dropTargetIndex;
 
     /**
-     * Only move if position actually changed
+     * Calculate the effective target index after the dragged blocks are removed.
+     * For each dragged block that is BEFORE the target, the target shifts down by 1.
      */
-    if (fromIndex !== toIndex) {
-      BlockManager.move(toIndex, fromIndex);
+    const blocksBeforeTarget = sortedBlocks.filter(
+      block => BlockManager.blocks.indexOf(block) < targetIndex
+    ).length;
+
+    const effectiveTarget = targetIndex - blocksBeforeTarget;
+
+    /**
+     * Determine if we're moving up or down
+     */
+    const isMovingUp = firstDraggedIndex > effectiveTarget;
+    const isMovingDown = firstDraggedIndex < effectiveTarget;
+    const positionChanged = isMovingUp || isMovingDown;
+
+    if (positionChanged) {
+      if (isMovingUp) {
+        /**
+         * Moving UP: Process from top to bottom (first block in selection first)
+         * Each block is inserted at effectiveTarget + offset
+         * Example: blocks at [3,4,5] moving to position 1
+         *   - Block at 3 moves to 1 → indices shift, next block now at 3
+         *   - Block at 3 moves to 2 → indices shift, next block now at 3
+         *   - Block at 3 moves to 3 → done
+         */
+        for (let i = 0; i < sortedBlocks.length; i++) {
+          const block = sortedBlocks[i];
+          const fromIndex = BlockManager.blocks.indexOf(block);
+
+          BlockManager.move(effectiveTarget + i, fromIndex);
+        }
+      } else {
+        /**
+         * Moving DOWN: Process from bottom to top (last block in selection first)
+         * Each block is inserted at effectiveTarget - 1 (since we're inserting BEFORE)
+         * Example: blocks at [1,2,3] moving to position 6 (effectiveTarget = 3)
+         *   - Block at 3 moves to 3 → no change in position but now after other blocks shift
+         *   - Block at 2 moves to 3 →
+         *   - Block at 1 moves to 3 →
+         *
+         * Actually simpler: move each to (effectiveTarget - 1) since array shrinks from top
+         */
+        for (let i = sortedBlocks.length - 1; i >= 0; i--) {
+          const block = sortedBlocks[i];
+          const fromIndex = BlockManager.blocks.indexOf(block);
+
+          /**
+           * When moving down, after removing a block from above,
+           * the target effectively stays at the same position.
+           * We want all blocks to end up at consecutive positions starting at effectiveTarget.
+           */
+          BlockManager.move(effectiveTarget + i, fromIndex);
+        }
+      }
     }
 
     this.onDragEnd();
@@ -338,14 +422,14 @@ export default class BlockDrag extends Module<BlockDragNodes> {
    * Clean up after drag ends (success or cancel)
    */
   private onDragEnd(): void {
-    const draggedBlock = this.draggedBlock;
+    const draggedBlocks = this.draggedBlocks;
 
     /**
-     * Remove dragging style
+     * Remove dragging style from all blocks
      */
-    if (draggedBlock) {
-      draggedBlock.holder.classList.remove(this.CSS.blockDragging);
-    }
+    draggedBlocks.forEach(block => {
+      block.holder.classList.remove(this.CSS.blockDragging);
+    });
 
     /**
      * Hide indicator
@@ -355,15 +439,15 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     /**
      * Clear state
      */
-    this.draggedBlock = null;
+    this.draggedBlocks = [];
     this.dropTargetIndex = null;
     this.isDragging = false;
 
     /**
-     * Reposition toolbar to the block's new location
+     * Reposition toolbar to the first dragged block's new location
      */
-    if (draggedBlock) {
-      this.Editor.Toolbar.moveAndOpen(draggedBlock);
+    if (draggedBlocks.length > 0) {
+      this.Editor.Toolbar.moveAndOpen(draggedBlocks[0]);
     }
   }
 

@@ -107,6 +107,9 @@ const createBlockSelection = (overrides: ModuleOverrides = {}): BlockSelectionSe
     Paste: {
       MIME_TYPE: 'application/editorjs',
     } as unknown as EditorModules['Paste'],
+    BlockDrag: {
+      isDragging: false,
+    } as unknown as EditorModules['BlockDrag'],
   };
 
   const mergedState = { ...defaults,

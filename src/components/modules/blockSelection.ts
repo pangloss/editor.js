@@ -231,7 +231,14 @@ export default class BlockSelection extends Module {
    * @param {boolean} restoreSelection - if true, restore saved selection
    */
   public clearSelection(reason?: Event, restoreSelection = false): void {
-    const { RectangleSelection } = this.Editor;
+    const { RectangleSelection, BlockDrag } = this.Editor;
+
+    /**
+     * Don't clear selection during block drag - we need it for multi-block drag
+     */
+    if (BlockDrag.isDragging) {
+      return;
+    }
 
     this.needToSelectAll = false;
     this.nativeInputSelected = false;
