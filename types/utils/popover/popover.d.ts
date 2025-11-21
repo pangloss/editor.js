@@ -1,4 +1,5 @@
 import { PopoverItemParams } from './popover-item';
+import type Flipper from '../../../src/components/flipper';
 import { PopoverEvent } from './popover-event';
 
 /**
@@ -32,6 +33,11 @@ export interface PopoverParams {
    * Useful for popovers with search where Enter should select the first result.
    */
   autoFocusFirstItem?: boolean;
+
+  /**
+   * Optional flipper instance to reuse for keyboard navigation
+   */
+  flipper?: Flipper;
 
   /**
    * Popover texts overrides
