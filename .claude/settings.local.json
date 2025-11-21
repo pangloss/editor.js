@@ -3,7 +3,12 @@
     "allow": [
       "Skill(superpowers:systematic-debugging)",
       "Bash(git show:*)",
-      "Bash(yarn playwright test:*)"
+      "Bash(yarn playwright test:*)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(yarn lint:*)",
+      "Bash(yarn test:unit:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
