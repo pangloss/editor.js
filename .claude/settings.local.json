@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(superpowers:systematic-debugging)",
+      "Bash(git show:*)",
+      "Bash(yarn playwright test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
