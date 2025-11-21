@@ -27,6 +27,7 @@ import BlockManager from '../components/modules/blockManager';
 import BlockSelection from '../components/modules/blockSelection';
 import Caret from '../components/modules/caret';
 import CrossBlockSelection from '../components/modules/crossBlockSelection';
+import BlockDrag from '../components/modules/blockDrag';
 import DragNDrop from '../components/modules/dragNDrop';
 import ModificationsObserver from '../components/modules/modificationsObserver';
 import Paste from '../components/modules/paste';
@@ -64,6 +65,7 @@ export interface EditorModules {
   InlineToolbar: InlineToolbar,
 
   // Modules
+  BlockDrag: BlockDrag,
   BlockEvents: BlockEvents,
   BlockManager: BlockManager,
   BlockSelection: BlockSelection,

@@ -470,10 +470,11 @@ export default class Toolbar extends Module<ToolbarNodes> {
     $.append(this.nodes.actions, this.nodes.settingsToggler);
 
     const blockTunesTooltip = $.make('div');
-    const blockTunesTooltipEl = $.text(I18n.ui(I18nInternalNS.ui.blockTunes.toggler, 'Click to tune'));
     const slashRealKey = await getKeyboardKeyForCode('Slash', '/');
 
-    blockTunesTooltip.appendChild(blockTunesTooltipEl);
+    blockTunesTooltip.appendChild($.text('Drag to move'));
+    blockTunesTooltip.appendChild(document.createElement('br'));
+    blockTunesTooltip.appendChild($.text(I18n.ui(I18nInternalNS.ui.blockTunes.toggler, 'Click to tune')));
     blockTunesTooltip.appendChild($.make('div', this.CSS.plusButtonShortcut, {
       textContent: beautifyShortcut(`CMD + ${slashRealKey}`),
     }));
@@ -559,9 +560,16 @@ export default class Toolbar extends Module<ToolbarNodes> {
     /**
      * Settings toggler
      *
-     * mousedown is used because on click selection is lost in Safari and FF
+     * mouseup is used to allow drag detection before opening tunes
      */
-    this.readOnlyMutableListeners.on(this.nodes.settingsToggler, 'mousedown', (e) => {
+    this.readOnlyMutableListeners.on(this.nodes.settingsToggler, 'mouseup', (e) => {
+      /**
+       * Don't open tunes if a drag just occurred
+       */
+      if (this.Editor.BlockDrag.isDragging) {
+        return;
+      }
+
       /**
        * Stop propagation to prevent block selection clearance
        *

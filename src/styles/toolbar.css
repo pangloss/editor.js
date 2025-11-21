@@ -58,8 +58,12 @@
     @apply --toolbox-button;
 
     margin-left: 3px;
-    cursor: pointer;
+    cursor: grab;
     user-select: none;
+
+    &:active {
+      cursor: grabbing;
+    }
 
     @media (--not-mobile){
       width: 24px;
@@ -90,5 +94,26 @@
 .codex-editor--narrow .ce-toolbar__plus {
   @media (--not-mobile) {
     left: 5px;
+  }
+}
+
+/**
+ * Block drag indicator
+ * Shows drop target position when dragging blocks
+ */
+.ce-block-drag-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #388AE5;
+  pointer-events: none;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  display: none;
+  z-index: 1;
+
+  &--visible {
+    display: block;
   }
 }

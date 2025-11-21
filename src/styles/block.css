@@ -37,6 +37,10 @@
     max-width: none;
   }
 
+  &--dragging {
+    opacity: 0.4;
+  }
+
   &__content {
     position: relative;
     max-width: var(--content-width);

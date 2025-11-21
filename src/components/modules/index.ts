@@ -28,6 +28,7 @@ import BlockManager from './blockManager';
 import BlockSelection from './blockSelection';
 import Caret from './caret';
 import CrossBlockSelection from './crossBlockSelection';
+import BlockDrag from './blockDrag';
 import DragNDrop from './dragNDrop';
 import ModificationsObserver from './modificationsObserver';
 import Paste from './paste';
@@ -64,6 +65,7 @@ export default {
   InlineToolbar,
 
   // Modules
+  BlockDrag,
   BlockEvents,
   BlockManager,
   BlockSelection,
