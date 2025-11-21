@@ -180,6 +180,14 @@ export default class BlockEvents extends Module {
    * @param {DragEvent} event - drag over event
    */
   public dragOver(event: DragEvent): void {
+    /**
+     * Skip drop target indicator during block drag-to-reorder
+     * (BlockDrag module has its own indicator)
+     */
+    if (this.Editor.BlockDrag.isDragging) {
+      return;
+    }
+
     const block = this.Editor.BlockManager.getBlockByChildNode(event.target as Node);
 
     if (!block) {
