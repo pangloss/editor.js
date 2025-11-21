@@ -585,7 +585,7 @@ export default class UI extends Module<UINodes> {
    * @param {KeyboardEvent} event - keyboard event
    */
   private backspacePressed(event: KeyboardEvent): void {
-    const { BlockManager, BlockSelection, Caret } = this.Editor;
+    const { BlockManager, BlockSelection, CrossBlockSelection, Caret } = this.Editor;
 
     const selectionExists = Selection.isSelectionExists;
     const selectionCollapsed = Selection.isCollapsed;
@@ -600,27 +600,67 @@ export default class UI extends Module<UINodes> {
       return;
     }
 
+    const selectedBlocks = BlockSelection.selectedBlocks;
+
+    /**
+     * Single block selection (block navigation mode):
+     * Delete the block and select the adjacent one
+     */
+    if (selectedBlocks.length === 1) {
+      const blockToDelete = selectedBlocks[0];
+      const blockIndex = BlockManager.getBlockIndex(blockToDelete);
+      const nextBlock = BlockManager.getBlockByIndex(blockIndex + 1);
+      const prevBlock = BlockManager.getBlockByIndex(blockIndex - 1);
+
+      BlockSelection.clearSelection();
+      void BlockManager.removeBlock(blockToDelete);
+
+      if (nextBlock) {
+        CrossBlockSelection.selectBlock(nextBlock);
+      } else if (prevBlock) {
+        CrossBlockSelection.selectBlock(prevBlock);
+      } else {
+        /** No blocks remain, insert a default block and focus it */
+        const insertedBlock = BlockManager.insertDefaultBlockAtIndex(0, true);
+
+        Caret.setToBlock(insertedBlock, Caret.positions.START);
+      }
+
+      _.stopEvent(event);
+
+      return;
+    }
+
+    /**
+     * Multi-block selection: delete all and select the next block, or insert a default block if none remain
+     */
+    const firstSelectedIndex = BlockManager.getBlockIndex(selectedBlocks[0]);
     const selectionPositionIndex = BlockManager.removeSelectedBlocks();
 
     if (selectionPositionIndex === undefined) {
       return;
     }
 
-    const newBlock = BlockManager.insertDefaultBlockAtIndex(selectionPositionIndex, true);
+    BlockSelection.clearSelection();
 
-    Caret.setToBlock(newBlock, Caret.positions.START);
+    const nextBlock = BlockManager.getBlockByIndex(firstSelectedIndex);
 
-    /** Clear selection */
-    BlockSelection.clearSelection(event);
+    if (nextBlock) {
+      CrossBlockSelection.selectBlock(nextBlock);
+    } else {
+      const prevBlock = BlockManager.getBlockByIndex(firstSelectedIndex - 1);
 
-    /**
-     * Stop propagations
-     * Manipulation with BlockSelections is handled in global backspacePress because they may occur
-     * with CMD+A or RectangleSelection and they can be handled on document event
-     */
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
+      if (prevBlock) {
+        CrossBlockSelection.selectBlock(prevBlock);
+      } else {
+        /** No blocks remain, insert a default block and focus it */
+        const newBlock = BlockManager.insertDefaultBlockAtIndex(0, true);
+
+        Caret.setToBlock(newBlock, Caret.positions.START);
+      }
+    }
+
+    _.stopEvent(event);
   }
 
   /**
@@ -681,15 +721,31 @@ export default class UI extends Module<UINodes> {
 
   /**
    * Arrow key pressed on document
-   * Handles block navigation mode when a single block is selected
+   * Handles block navigation mode when blocks are selected
    *
    * @param {KeyboardEvent} event - keyboard event
    */
   private arrowPressed(event: KeyboardEvent): void {
-    const { BlockManager, BlockSelection, CrossBlockSelection } = this.Editor;
+    const { BlockSelection, CrossBlockSelection } = this.Editor;
+
+    if (!BlockSelection.anyBlockSelected) {
+      return;
+    }
+
+    const isDown = event.keyCode === _.keyCodes.DOWN;
 
     /**
-     * Only handle when exactly one block is selected (block navigation mode)
+     * Shift+Arrow extends the selection
+     */
+    if (event.shiftKey) {
+      CrossBlockSelection.toggleBlockSelectedState(isDown);
+      _.stopEvent(event);
+
+      return;
+    }
+
+    /**
+     * Arrow without Shift moves selection (only for single block)
      */
     const selectedBlocks = BlockSelection.selectedBlocks;
 
@@ -697,17 +753,9 @@ export default class UI extends Module<UINodes> {
       return;
     }
 
-    /**
-     * Don't handle if Shift is pressed (that's for extending selection)
-     */
-    if (event.shiftKey) {
-      return;
-    }
-
     const selectedBlock = selectedBlocks[0];
-    const selectedIndex = BlockManager.getBlockIndex(selectedBlock);
-    const isDown = event.keyCode === _.keyCodes.DOWN;
-    const targetBlock = BlockManager.getBlockByIndex(selectedIndex + (isDown ? 1 : -1));
+    const selectedIndex = this.Editor.BlockManager.getBlockIndex(selectedBlock);
+    const targetBlock = this.Editor.BlockManager.getBlockByIndex(selectedIndex + (isDown ? 1 : -1));
 
     if (targetBlock) {
       CrossBlockSelection.selectBlock(targetBlock, selectedBlock);

@@ -81,76 +81,25 @@ export default class BlockEvents extends Module {
 
   /**
    * Tries to delete selected blocks when remove keys pressed.
+   * Note: Block selection deletion is primarily handled at the document level in UI module.
+   * This handler exists as a fallback for edge cases where block-level events fire.
    *
    * @param event - keyboard event
    * @returns true if event was handled
    */
   private handleSelectedBlocksDeletion(event: KeyboardEvent): boolean {
-    const { BlockSelection, BlockManager, Caret } = this.Editor;
+    const { BlockSelection } = this.Editor;
     const isRemoveKey = event.keyCode === _.keyCodes.BACKSPACE || event.keyCode === _.keyCodes.DELETE;
-    const selectionExists = SelectionUtils.isSelectionExists;
-    const selectionCollapsed = SelectionUtils.isCollapsed === true;
-    const shouldHandleSelectionDeletion = isRemoveKey &&
-      BlockSelection.anyBlockSelected &&
-      (!selectionExists || selectionCollapsed);
 
-    if (!shouldHandleSelectionDeletion) {
+    if (!isRemoveKey || !BlockSelection.anyBlockSelected) {
       return false;
     }
 
-    const selectedBlocks = BlockSelection.selectedBlocks;
-    const isSingleBlockSelected = selectedBlocks.length === 1;
-
     /**
-     * Single block selection (block navigation mode):
-     * Delete the block and select the adjacent one
+     * Block selection deletion is handled by UI.backspacePressed at document level.
+     * Just stop the event here to prevent default block behavior.
      */
-    if (isSingleBlockSelected) {
-      const blockToDelete = selectedBlocks[0];
-      const blockIndex = BlockManager.getBlockIndex(blockToDelete);
-      const nextBlock = BlockManager.getBlockByIndex(blockIndex + 1);
-      const prevBlock = BlockManager.getBlockByIndex(blockIndex - 1);
-
-      BlockSelection.clearSelection(event);
-      void BlockManager.removeBlock(blockToDelete);
-
-      /**
-       * Select the next block, or previous if no next, or insert a default block if none remain
-       */
-      if (nextBlock) {
-        BlockSelection.selectBlock(nextBlock);
-      } else if (prevBlock) {
-        BlockSelection.selectBlock(prevBlock);
-      } else {
-        /** No blocks remain, insert a default block and focus it */
-        const insertedBlock = BlockManager.insertDefaultBlockAtIndex(0, true);
-
-        Caret.setToBlock(insertedBlock, Caret.positions.START);
-      }
-
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      event.stopPropagation();
-
-      return true;
-    }
-
-    /**
-     * Multi-block selection: delete all and insert a default block
-     */
-    const selectionPositionIndex = BlockManager.removeSelectedBlocks();
-
-    if (selectionPositionIndex !== undefined) {
-      const insertedBlock = BlockManager.insertDefaultBlockAtIndex(selectionPositionIndex, true);
-
-      Caret.setToBlock(insertedBlock, Caret.positions.START);
-    }
-
-    BlockSelection.clearSelection(event);
-
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    event.stopPropagation();
+    _.stopEvent(event);
 
     return true;
   }
@@ -685,27 +634,6 @@ export default class BlockEvents extends Module {
       void this.Editor.InlineToolbar.tryToShow();
     }
 
-    /**
-     * Block navigation mode: when a single block is selected (via Escape) and Down is pressed without Shift,
-     * move selection to the next block
-     */
-    const isDownKey = event.keyCode === _.keyCodes.DOWN;
-    const selectedBlocks = BlockSelection.selectedBlocks;
-    const isSingleBlockSelected = selectedBlocks.length === 1;
-
-    if (isDownKey && !event.shiftKey && isSingleBlockSelected) {
-      const selectedBlock = selectedBlocks[0];
-      const selectedIndex = BlockManager.getBlockIndex(selectedBlock);
-      const nextBlock = BlockManager.getBlockByIndex(selectedIndex + 1);
-
-      if (nextBlock) {
-        this.Editor.CrossBlockSelection.selectBlock(nextBlock, selectedBlock);
-        _.stopEvent(event);
-      }
-
-      return;
-    }
-
     const navigateNext = event.keyCode === _.keyCodes.DOWN || (event.keyCode === _.keyCodes.RIGHT && !this.isRtl);
     const isNavigated = navigateNext ? this.Editor.Caret.navigateNext() : this.Editor.Caret.navigatePrevious();
 
@@ -777,27 +705,6 @@ export default class BlockEvents extends Module {
 
     if (isShiftUpKey) {
       void this.Editor.InlineToolbar.tryToShow();
-    }
-
-    /**
-     * Block navigation mode: when a single block is selected (via Escape) and Up is pressed without Shift,
-     * move selection to the previous block
-     */
-    const isUpKey = event.keyCode === _.keyCodes.UP;
-    const selectedBlocks = BlockSelection.selectedBlocks;
-    const isSingleBlockSelected = selectedBlocks.length === 1;
-
-    if (isUpKey && !event.shiftKey && isSingleBlockSelected) {
-      const selectedBlock = selectedBlocks[0];
-      const selectedIndex = BlockManager.getBlockIndex(selectedBlock);
-      const prevBlock = BlockManager.getBlockByIndex(selectedIndex - 1);
-
-      if (prevBlock) {
-        this.Editor.CrossBlockSelection.selectBlock(prevBlock, selectedBlock);
-        _.stopEvent(event);
-      }
-
-      return;
     }
 
     const navigatePrevious = event.keyCode === _.keyCodes.UP || (event.keyCode === _.keyCodes.LEFT && !this.isRtl);
