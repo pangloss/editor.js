@@ -68,12 +68,29 @@ export default class BlockDrag extends Module<BlockDragNodes> {
    */
   private enableModuleBindings(): void {
     /**
-     * Wait for toolbar to be ready, since it's created in requestIdleCallback
+     * Wait for toolbar to be ready, since it's created in requestIdleCallback.
+     * We use setTimeout to retry if toolbar isn't ready yet, ensuring we don't
+     * miss the setup due to race conditions between requestIdleCallback calls.
      */
-    window.requestIdleCallback(() => {
+    const trySetup = (): void => {
+      const settingsButton = this.Editor.Toolbar.nodes.settingsToggler;
+
+      if (!settingsButton) {
+        /**
+         * Toolbar not ready yet, retry after a short delay
+         */
+        setTimeout(trySetup, 100);
+
+        return;
+      }
+
       this.setupDragHandle();
       this.createIndicator();
       this.setupDropZone();
+    };
+
+    window.requestIdleCallback(() => {
+      trySetup();
     }, { timeout: 2000 });
   }
 
@@ -202,36 +219,50 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     const { BlockManager } = this.Editor;
     const blocks = BlockManager.blocks;
 
-    /**
-     * Find which block the cursor is over
-     */
-    const targetElement = document.elementFromPoint(event.clientX, event.clientY);
-
-    if (!targetElement) {
+    if (blocks.length === 0) {
       return;
     }
 
-    const targetBlockHolder = targetElement.closest('.ce-block') as HTMLElement | null;
-
-    if (!targetBlockHolder) {
-      return;
-    }
-
-    const targetBlock = BlockManager.getBlockByChildNode(targetBlockHolder);
-
-    if (!targetBlock) {
-      return;
-    }
-
-    const targetIndex = blocks.indexOf(targetBlock);
-    const targetRect = targetBlockHolder.getBoundingClientRect();
-
-    /**
-     * Determine if cursor is in top or bottom half
-     */
     const cursorY = event.clientY;
-    const midpoint = targetRect.top + targetRect.height / 2;
-    const isTopHalf = cursorY < midpoint;
+
+    /**
+     * Find the target block based on vertical position only.
+     * This allows dragging to work even when cursor is off to the side.
+     */
+    let targetBlock = blocks[0];
+    let targetIndex = 0;
+    let isTopHalf = true;
+
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      const rect = block.holder.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+
+      if (cursorY >= rect.top && cursorY < rect.bottom) {
+        /**
+         * Cursor is within this block's vertical bounds
+         */
+        targetBlock = block;
+        targetIndex = i;
+        isTopHalf = cursorY < midpoint;
+        break;
+      } else if (cursorY < rect.top) {
+        /**
+         * Cursor is above this block - use previous block or first block
+         */
+        targetBlock = i > 0 ? blocks[i - 1] : block;
+        targetIndex = i > 0 ? i - 1 : 0;
+        isTopHalf = i === 0;
+        break;
+      } else if (i === blocks.length - 1) {
+        /**
+         * Cursor is below the last block
+         */
+        targetBlock = block;
+        targetIndex = i;
+        isTopHalf = false;
+      }
+    }
 
     /**
      * Calculate drop index
@@ -243,7 +274,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     /**
      * Position the indicator
      */
-    this.positionIndicator(targetBlockHolder, isTopHalf);
+    this.positionIndicator(targetBlock.holder, isTopHalf);
   }
 
   /**

@@ -80,6 +80,9 @@ const createBlockEvents = (overrides: Partial<EditorModules> = {}): BlockEvents 
     CrossBlockSelection: {
       toggleBlockSelectedState: vi.fn(),
     } as unknown as EditorModules['CrossBlockSelection'],
+    BlockDrag: {
+      isDragging: false,
+    } as unknown as EditorModules['BlockDrag'],
   };
 
   const mergedState: Partial<EditorModules> = { ...defaults };
