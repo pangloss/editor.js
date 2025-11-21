@@ -419,6 +419,18 @@ export const isPromise = (object: unknown): object is Promise<unknown> => {
 };
 
 /**
+ * Stops event propagation and prevents default behavior.
+ * Use this to fully consume an event and prevent other handlers from processing it.
+ *
+ * @param {Event} event - event to stop
+ */
+export const stopEvent = (event: Event): void => {
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+};
+
+/**
  * Returns true if passed key code is printable (a-Z, 0-9, etc) character.
  *
  * @param {number} keyCode - key code

@@ -533,6 +533,11 @@ export default class UI extends Module<UINodes> {
         this.escapePressed(event);
         break;
 
+      case _.keyCodes.UP:
+      case _.keyCodes.DOWN:
+        this.arrowPressed(event);
+        break;
+
       default:
         this.defaultBehaviour(event);
         break;
@@ -625,32 +630,89 @@ export default class UI extends Module<UINodes> {
    * @param {Event} event - escape keydown event
    */
   private escapePressed(event: KeyboardEvent): void {
-    /**
-     * Clear blocks selection by ESC
-     */
-    this.Editor.BlockSelection.clearSelection(event);
+    const { BlockManager, BlockSelection, CrossBlockSelection, Toolbar } = this.Editor;
 
-    if (this.Editor.Toolbar.toolbox.opened) {
-      this.Editor.Toolbar.toolbox.close();
-      this.Editor.BlockManager.currentBlock &&
-        this.Editor.Caret.setToBlock(this.Editor.BlockManager.currentBlock, this.Editor.Caret.positions.END);
+    if (Toolbar.toolbox.opened) {
+      BlockSelection.clearSelection(event);
+      Toolbar.toolbox.close();
+      BlockManager.currentBlock &&
+        this.Editor.Caret.setToBlock(BlockManager.currentBlock, this.Editor.Caret.positions.END);
 
       return;
     }
 
     if (this.Editor.BlockSettings.opened) {
+      BlockSelection.clearSelection(event);
       this.Editor.BlockSettings.close();
 
       return;
     }
 
     if (this.Editor.InlineToolbar.opened) {
+      BlockSelection.clearSelection(event);
       this.Editor.InlineToolbar.close();
 
       return;
     }
 
-    this.Editor.Toolbar.close();
+    /**
+     * If no toolbar is open and blocks are selected, clear the selection (exit block navigation mode)
+     */
+    if (BlockSelection.anyBlockSelected) {
+      BlockSelection.clearSelection(event);
+
+      return;
+    }
+
+    /**
+     * If no toolbar is open and no blocks are selected, select the current block (enter block navigation mode)
+     */
+    const currentBlock = BlockManager.currentBlock;
+
+    if (currentBlock) {
+      CrossBlockSelection.selectBlock(currentBlock);
+      _.stopEvent(event);
+
+      return;
+    }
+
+    Toolbar.close();
+  }
+
+  /**
+   * Arrow key pressed on document
+   * Handles block navigation mode when a single block is selected
+   *
+   * @param {KeyboardEvent} event - keyboard event
+   */
+  private arrowPressed(event: KeyboardEvent): void {
+    const { BlockManager, BlockSelection, CrossBlockSelection } = this.Editor;
+
+    /**
+     * Only handle when exactly one block is selected (block navigation mode)
+     */
+    const selectedBlocks = BlockSelection.selectedBlocks;
+
+    if (selectedBlocks.length !== 1) {
+      return;
+    }
+
+    /**
+     * Don't handle if Shift is pressed (that's for extending selection)
+     */
+    if (event.shiftKey) {
+      return;
+    }
+
+    const selectedBlock = selectedBlocks[0];
+    const selectedIndex = BlockManager.getBlockIndex(selectedBlock);
+    const isDown = event.keyCode === _.keyCodes.DOWN;
+    const targetBlock = BlockManager.getBlockByIndex(selectedIndex + (isDown ? 1 : -1));
+
+    if (targetBlock) {
+      CrossBlockSelection.selectBlock(targetBlock, selectedBlock);
+      _.stopEvent(event);
+    }
   }
 
   /**
@@ -659,7 +721,7 @@ export default class UI extends Module<UINodes> {
    * @param {KeyboardEvent} event - keyboard event
    */
   private enterPressed(event: KeyboardEvent): void {
-    const { BlockManager, BlockSelection } = this.Editor;
+    const { BlockManager, BlockSelection, Caret } = this.Editor;
 
     if (this.someToolbarOpened) {
       return;
@@ -672,20 +734,29 @@ export default class UI extends Module<UINodes> {
 
     /**
      * If any block selected and selection doesn't exists on the page (that means no other editable element is focused),
-     * remove selected blocks
+     * exit block selection mode and focus the selected block
      */
     if (BlockSelection.anyBlockSelected && (!selectionExists || selectionCollapsed === true)) {
-      /** Clear selection */
-      BlockSelection.clearSelection(event);
+      /**
+       * Stop propagations immediately to prevent other handlers from creating new blocks
+       */
+      _.stopEvent(event);
+
+      const selectedBlocks = BlockSelection.selectedBlocks;
 
       /**
-       * Stop propagations
-       * Manipulation with BlockSelections is handled in global enterPress because they may occur
-       * with CMD+A or RectangleSelection
+       * For single block selection (block navigation mode), place caret at the end of the block
+       * Don't pass the event to clearSelection to avoid triggering "replace with printable key" logic
        */
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      event.stopPropagation();
+      if (selectedBlocks.length === 1) {
+        const blockToFocus = selectedBlocks[0];
+
+        BlockSelection.clearSelection();
+        Caret.setToBlock(blockToFocus, Caret.positions.END);
+      } else {
+        /** Clear selection for multi-block selection */
+        BlockSelection.clearSelection();
+      }
 
       return;
     }

@@ -98,6 +98,46 @@ export default class BlockEvents extends Module {
       return false;
     }
 
+    const selectedBlocks = BlockSelection.selectedBlocks;
+    const isSingleBlockSelected = selectedBlocks.length === 1;
+
+    /**
+     * Single block selection (block navigation mode):
+     * Delete the block and select the adjacent one
+     */
+    if (isSingleBlockSelected) {
+      const blockToDelete = selectedBlocks[0];
+      const blockIndex = BlockManager.getBlockIndex(blockToDelete);
+      const nextBlock = BlockManager.getBlockByIndex(blockIndex + 1);
+      const prevBlock = BlockManager.getBlockByIndex(blockIndex - 1);
+
+      BlockSelection.clearSelection(event);
+      void BlockManager.removeBlock(blockToDelete);
+
+      /**
+       * Select the next block, or previous if no next, or insert a default block if none remain
+       */
+      if (nextBlock) {
+        BlockSelection.selectBlock(nextBlock);
+      } else if (prevBlock) {
+        BlockSelection.selectBlock(prevBlock);
+      } else {
+        /** No blocks remain, insert a default block and focus it */
+        const insertedBlock = BlockManager.insertDefaultBlockAtIndex(0, true);
+
+        Caret.setToBlock(insertedBlock, Caret.positions.START);
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.stopPropagation();
+
+      return true;
+    }
+
+    /**
+     * Multi-block selection: delete all and insert a default block
+     */
     const selectionPositionIndex = BlockManager.removeSelectedBlocks();
 
     if (selectionPositionIndex !== undefined) {
@@ -628,9 +668,10 @@ export default class BlockEvents extends Module {
       this.Editor.Toolbar.close();
     }
 
-    const { currentBlock } = this.Editor.BlockManager;
+    const { BlockManager, BlockSelection } = this.Editor;
+    const { currentBlock } = BlockManager;
     const caretAtEnd = currentBlock?.currentInput !== undefined ? caretUtils.isCaretAtEndOfInput(currentBlock.currentInput) : undefined;
-    const shouldEnableCBS = caretAtEnd || this.Editor.BlockSelection.anyBlockSelected;
+    const shouldEnableCBS = caretAtEnd || BlockSelection.anyBlockSelected;
 
     const isShiftDownKey = event.shiftKey && event.keyCode === _.keyCodes.DOWN;
 
@@ -642,6 +683,27 @@ export default class BlockEvents extends Module {
 
     if (isShiftDownKey) {
       void this.Editor.InlineToolbar.tryToShow();
+    }
+
+    /**
+     * Block navigation mode: when a single block is selected (via Escape) and Down is pressed without Shift,
+     * move selection to the next block
+     */
+    const isDownKey = event.keyCode === _.keyCodes.DOWN;
+    const selectedBlocks = BlockSelection.selectedBlocks;
+    const isSingleBlockSelected = selectedBlocks.length === 1;
+
+    if (isDownKey && !event.shiftKey && isSingleBlockSelected) {
+      const selectedBlock = selectedBlocks[0];
+      const selectedIndex = BlockManager.getBlockIndex(selectedBlock);
+      const nextBlock = BlockManager.getBlockByIndex(selectedIndex + 1);
+
+      if (nextBlock) {
+        this.Editor.CrossBlockSelection.selectBlock(nextBlock, selectedBlock);
+        _.stopEvent(event);
+      }
+
+      return;
     }
 
     const navigateNext = event.keyCode === _.keyCodes.DOWN || (event.keyCode === _.keyCodes.RIGHT && !this.isRtl);
@@ -700,9 +762,10 @@ export default class BlockEvents extends Module {
       this.Editor.Toolbar.close();
     }
 
-    const { currentBlock } = this.Editor.BlockManager;
+    const { BlockManager, BlockSelection } = this.Editor;
+    const { currentBlock } = BlockManager;
     const caretAtStart = currentBlock?.currentInput !== undefined ? caretUtils.isCaretAtStartOfInput(currentBlock.currentInput) : undefined;
-    const shouldEnableCBS = caretAtStart || this.Editor.BlockSelection.anyBlockSelected;
+    const shouldEnableCBS = caretAtStart || BlockSelection.anyBlockSelected;
 
     const isShiftUpKey = event.shiftKey && event.keyCode === _.keyCodes.UP;
 
@@ -714,6 +777,27 @@ export default class BlockEvents extends Module {
 
     if (isShiftUpKey) {
       void this.Editor.InlineToolbar.tryToShow();
+    }
+
+    /**
+     * Block navigation mode: when a single block is selected (via Escape) and Up is pressed without Shift,
+     * move selection to the previous block
+     */
+    const isUpKey = event.keyCode === _.keyCodes.UP;
+    const selectedBlocks = BlockSelection.selectedBlocks;
+    const isSingleBlockSelected = selectedBlocks.length === 1;
+
+    if (isUpKey && !event.shiftKey && isSingleBlockSelected) {
+      const selectedBlock = selectedBlocks[0];
+      const selectedIndex = BlockManager.getBlockIndex(selectedBlock);
+      const prevBlock = BlockManager.getBlockByIndex(selectedIndex - 1);
+
+      if (prevBlock) {
+        this.Editor.CrossBlockSelection.selectBlock(prevBlock, selectedBlock);
+        _.stopEvent(event);
+      }
+
+      return;
     }
 
     const navigatePrevious = event.keyCode === _.keyCodes.UP || (event.keyCode === _.keyCodes.LEFT && !this.isRtl);

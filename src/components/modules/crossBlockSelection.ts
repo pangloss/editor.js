@@ -62,6 +62,36 @@ export default class CrossBlockSelection extends Module {
   }
 
   /**
+   * Select a single block, entering block navigation mode.
+   * Used when pressing Escape to select the current block.
+   *
+   * @param {Block} block - block to select
+   * @param {Block} [previousBlock] - optional block to unselect first (for moving selection)
+   */
+  public selectBlock(block: Block, previousBlock?: Block): void {
+    const { BlockSelection } = this.Editor;
+
+    if (previousBlock) {
+      previousBlock.selected = false;
+    }
+
+    this.firstSelectedBlock = block;
+    this.lastSelectedBlock = block;
+
+    block.selected = true;
+
+    BlockSelection.clearCache();
+    SelectionUtils.get()?.removeAllRanges();
+
+    this.Editor.Toolbar.close();
+    this.Editor.InlineToolbar.close();
+
+    block.holder.scrollIntoView({
+      block: 'nearest',
+    });
+  }
+
+  /**
    * Change selection state of the next Block
    * Used for CBS via Shift + arrow keys
    *
