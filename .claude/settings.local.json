@@ -8,7 +8,10 @@
       "Bash(yarn lint:*)",
       "Bash(yarn test:unit:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge-base:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []
