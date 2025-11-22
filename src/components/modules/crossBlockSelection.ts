@@ -86,6 +86,7 @@ export default class CrossBlockSelection extends Module {
     const { BlockManager, BlockSelection } = this.Editor;
 
     if (previousBlock) {
+      /* eslint-disable-next-line no-param-reassign -- Block.selected is a setter that must be called */
       previousBlock.selected = false;
     }
 
@@ -93,6 +94,7 @@ export default class CrossBlockSelection extends Module {
     this.lastSelectedBlock = block;
     this.navigationIndex = BlockManager.getBlockIndex(block);
 
+    /* eslint-disable-next-line no-param-reassign -- Block.selected is a setter that must be called */
     block.selected = true;
 
     BlockSelection.clearCache();
@@ -146,15 +148,12 @@ export default class CrossBlockSelection extends Module {
       return false;
     }
 
-    let targetIndex: number;
-
-    if (next) {
-      /** Down: select current block */
-      targetIndex = this.navigationIndex;
-    } else {
-      /** Up: select previous block, or current if at top */
-      targetIndex = this.navigationIndex > 0 ? this.navigationIndex - 1 : this.navigationIndex;
-    }
+    /**
+     * Down: select current block
+     * Up: select previous block, or current if at top
+     */
+    const upTargetIndex = this.navigationIndex > 0 ? this.navigationIndex - 1 : this.navigationIndex;
+    const targetIndex = next ? this.navigationIndex : upTargetIndex;
 
     const targetBlock = BlockManager.getBlockByIndex(targetIndex);
 
@@ -392,6 +391,5 @@ export default class CrossBlockSelection extends Module {
         BlockSelection.clearCache();
       }
     }
-
   }
 }

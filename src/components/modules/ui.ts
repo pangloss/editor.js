@@ -613,18 +613,24 @@ export default class UI extends Module<UINodes> {
 
     if (nextBlock) {
       CrossBlockSelection.selectBlock(nextBlock);
-    } else {
-      const prevBlock = BlockManager.getBlockByIndex(firstSelectedIndex - 1);
+      _.stopEvent(event);
 
-      if (prevBlock) {
-        CrossBlockSelection.selectBlock(prevBlock);
-      } else {
-        /** No blocks remain, insert a default block and focus it */
-        const newBlock = BlockManager.insertDefaultBlockAtIndex(0, true);
-
-        Caret.setToBlock(newBlock, Caret.positions.START);
-      }
+      return;
     }
+
+    const prevBlock = BlockManager.getBlockByIndex(firstSelectedIndex - 1);
+
+    if (prevBlock) {
+      CrossBlockSelection.selectBlock(prevBlock);
+      _.stopEvent(event);
+
+      return;
+    }
+
+    /** No blocks remain, insert a default block and focus it */
+    const newBlock = BlockManager.insertDefaultBlockAtIndex(0, true);
+
+    Caret.setToBlock(newBlock, Caret.positions.START);
 
     _.stopEvent(event);
   }
@@ -710,57 +716,56 @@ export default class UI extends Module<UINodes> {
     const isDown = event.keyCode === _.keyCodes.DOWN;
 
     /**
-     * If blocks are selected
+     * If in navigation mode but no blocks selected, navigate from current index
      */
-    if (BlockSelection.anyBlockSelected) {
-      /**
-       * Shift+Arrow extends the selection
-       */
-      if (event.shiftKey) {
-        CrossBlockSelection.toggleBlockSelectedState(isDown);
-        _.stopEvent(event);
+    if (!BlockSelection.anyBlockSelected && CrossBlockSelection.isInNavigationMode && CrossBlockSelection.navigateFromIndex(isDown)) {
+      _.stopEvent(event);
 
-        return;
-      }
+      return;
+    }
 
-      /**
-       * Arrow without Shift moves selection (only for single block)
-       */
-      const selectedBlocks = BlockSelection.selectedBlocks;
+    if (!BlockSelection.anyBlockSelected) {
+      return;
+    }
 
-      if (selectedBlocks.length !== 1) {
-        return;
-      }
-
-      const selectedBlock = selectedBlocks[0];
-      const selectedIndex = this.Editor.BlockManager.getBlockIndex(selectedBlock);
-      const targetIndex = selectedIndex + (isDown ? 1 : -1);
-
-      /** Don't wrap around - stay at edges */
-      if (targetIndex < 0 || targetIndex >= this.Editor.BlockManager.blocks.length) {
-        _.stopEvent(event);
-
-        return;
-      }
-
-      const targetBlock = this.Editor.BlockManager.getBlockByIndex(targetIndex);
-
-      if (targetBlock) {
-        CrossBlockSelection.selectBlock(targetBlock, selectedBlock);
-        _.stopEvent(event);
-      }
+    /**
+     * Shift+Arrow extends the selection
+     */
+    if (event.shiftKey) {
+      CrossBlockSelection.toggleBlockSelectedState(isDown);
+      _.stopEvent(event);
 
       return;
     }
 
     /**
-     * If in navigation mode but no blocks selected, navigate from current index
+     * Arrow without Shift moves selection (only for single block)
      */
-    if (CrossBlockSelection.isInNavigationMode) {
-      if (CrossBlockSelection.navigateFromIndex(isDown)) {
-        _.stopEvent(event);
-      }
+    const selectedBlocks = BlockSelection.selectedBlocks;
+
+    if (selectedBlocks.length !== 1) {
+      return;
     }
+
+    const selectedBlock = selectedBlocks[0];
+    const selectedIndex = this.Editor.BlockManager.getBlockIndex(selectedBlock);
+    const targetIndex = selectedIndex + (isDown ? 1 : -1);
+
+    /** Don't wrap around - stay at edges */
+    if (targetIndex < 0 || targetIndex >= this.Editor.BlockManager.blocks.length) {
+      _.stopEvent(event);
+
+      return;
+    }
+
+    const targetBlock = this.Editor.BlockManager.getBlockByIndex(targetIndex);
+
+    if (!targetBlock) {
+      return;
+    }
+
+    CrossBlockSelection.selectBlock(targetBlock, selectedBlock);
+    _.stopEvent(event);
   }
 
   /**
@@ -781,34 +786,45 @@ export default class UI extends Module<UINodes> {
     const selectionCollapsed = Selection.isCollapsed;
 
     /**
-     * If any block selected and selection doesn't exists on the page (that means no other editable element is focused),
-     * exit block selection mode and focus the selected block
+     * If no block selected or selection exists on the page, skip block selection handling
      */
-    if (BlockSelection.anyBlockSelected && (!selectionExists || selectionCollapsed === true)) {
-      /**
-       * Stop propagations immediately to prevent other handlers from creating new blocks
-       */
-      _.stopEvent(event);
+    const shouldHandleBlockSelection = BlockSelection.anyBlockSelected && (!selectionExists || selectionCollapsed === true);
 
-      const selectedBlocks = BlockSelection.selectedBlocks;
-
-      /**
-       * For single block selection (block navigation mode), place caret at the end of the block
-       * Don't pass the event to clearSelection to avoid triggering "replace with printable key" logic
-       */
-      if (selectedBlocks.length === 1) {
-        const blockToFocus = selectedBlocks[0];
-
-        BlockSelection.clearSelection();
-        Caret.setToBlock(blockToFocus, Caret.positions.END);
-      } else {
-        /** Clear selection for multi-block selection */
-        BlockSelection.clearSelection();
-      }
+    if (!shouldHandleBlockSelection) {
+      this.handleEnterWithoutBlockSelection(event, hasPointerToBlock);
 
       return;
     }
 
+    /**
+     * Stop propagations immediately to prevent other handlers from creating new blocks
+     */
+    _.stopEvent(event);
+
+    const selectedBlocks = BlockSelection.selectedBlocks;
+
+    /**
+     * For single block selection (block navigation mode), place caret at the end of the block
+     * Don't pass the event to clearSelection to avoid triggering "replace with printable key" logic
+     */
+    const blockToFocus = selectedBlocks.length === 1 ? selectedBlocks[0] : null;
+
+    BlockSelection.clearSelection();
+
+    if (!blockToFocus) {
+      return;
+    }
+
+    Caret.setToBlock(blockToFocus, Caret.positions.END);
+  }
+
+  /**
+   * Handle Enter key when no blocks are selected
+   *
+   * @param event - keyboard event
+   * @param hasPointerToBlock - whether BlockManager points to a block
+   */
+  private handleEnterWithoutBlockSelection(event: KeyboardEvent, hasPointerToBlock: boolean): void {
     /**
      * If Caret is not set anywhere, event target on Enter is always Element that we handle
      * In our case it is document.body

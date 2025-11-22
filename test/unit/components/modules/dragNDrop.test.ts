@@ -32,6 +32,9 @@ type TestModules = {
   InlineToolbar: {
     close: ReturnType<typeof vi.fn>;
   };
+  BlockDrag: {
+    isDragging: boolean;
+  };
 };
 type PartialModules = Partial<TestModules>;
 type DragNDropTestContext = {

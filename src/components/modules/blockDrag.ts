@@ -24,6 +24,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
       indicatorVisible: 'ce-block-drag-indicator--visible',
       blockDragging: 'ce-block--dragging',
       dragImageContainer: 'ce-drag-image-container',
+      blockContent: 'ce-block__content',
     };
   }
 
@@ -86,7 +87,9 @@ export default class BlockDrag extends Module<BlockDragNodes> {
         /**
          * Toolbar not ready yet, retry after a short delay
          */
-        setTimeout(trySetup, 100);
+        const toolbarRetryDelayMs = 100;
+
+        setTimeout(trySetup, toolbarRetryDelayMs);
 
         return;
       }
@@ -147,8 +150,8 @@ export default class BlockDrag extends Module<BlockDragNodes> {
       }
     });
 
-    this.readOnlyMutableListeners.on(settingsButton, 'dragstart', (event: DragEvent) => {
-      this.onDragStart(event);
+    this.readOnlyMutableListeners.on(settingsButton, 'dragstart', (event) => {
+      this.onDragStart(event as DragEvent);
     });
 
     this.readOnlyMutableListeners.on(settingsButton, 'dragend', () => {
@@ -162,16 +165,16 @@ export default class BlockDrag extends Module<BlockDragNodes> {
   private setupDropZone(): void {
     const { holder } = this.Editor.UI.nodes;
 
-    this.readOnlyMutableListeners.on(holder, 'dragover', (event: DragEvent) => {
-      this.onDragOver(event);
+    this.readOnlyMutableListeners.on(holder, 'dragover', (event) => {
+      this.onDragOver(event as DragEvent);
     });
 
-    this.readOnlyMutableListeners.on(holder, 'drop', (event: DragEvent) => {
-      this.onDrop(event);
+    this.readOnlyMutableListeners.on(holder, 'drop', (event) => {
+      this.onDrop(event as DragEvent);
     });
 
-    this.readOnlyMutableListeners.on(holder, 'dragleave', (event: DragEvent) => {
-      this.onDragLeave(event);
+    this.readOnlyMutableListeners.on(holder, 'dragleave', (event) => {
+      this.onDragLeave(event as DragEvent);
     });
   }
 
@@ -196,7 +199,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     /**
      * Get the block that the toolbar is currently hovering over
      */
-    const hoveredBlock = (Toolbar as any).hoveredBlock as Block | undefined;
+    const hoveredBlock = (Toolbar as unknown as { hoveredBlock: Block | undefined }).hoveredBlock;
 
     if (!hoveredBlock) {
       event.preventDefault();
@@ -213,7 +216,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     if (selectedBlocks.length > 1 && selectedBlocks.includes(hoveredBlock)) {
       this.draggedBlocks = selectedBlocks;
     } else {
-      this.draggedBlocks = [hoveredBlock];
+      this.draggedBlocks = [ hoveredBlock ];
     }
 
     /**
@@ -221,6 +224,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
      */
     if (event.dataTransfer) {
       event.dataTransfer.setData('editor/block-drag', this.draggedBlocks.map(b => b.id).join(','));
+      /* eslint-disable-next-line no-param-reassign -- DataTransfer API requires setting this property */
       event.dataTransfer.effectAllowed = 'move';
     }
 
@@ -275,8 +279,9 @@ export default class BlockDrag extends Module<BlockDragNodes> {
      * Calculate bounding box of all selected blocks
      * Use the content element, not the holder (holder is full-width)
      */
-    const firstBlockContent = blocks[0].holder.querySelector('.ce-block__content') as HTMLElement;
-    const lastBlockContent = blocks[blocks.length - 1].holder.querySelector('.ce-block__content') as HTMLElement;
+    const blockContentSelector = `.${this.CSS.blockContent}`;
+    const firstBlockContent = blocks[0].holder.querySelector(blockContentSelector) as HTMLElement;
+    const lastBlockContent = blocks[blocks.length - 1].holder.querySelector(blockContentSelector) as HTMLElement;
 
     const firstBlockRect = (firstBlockContent || blocks[0].holder).getBoundingClientRect();
     const lastBlockRect = (lastBlockContent || blocks[blocks.length - 1].holder).getBoundingClientRect();
@@ -316,7 +321,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
      * Clone each selected block's content into the container
      */
     blocks.forEach(block => {
-      const blockContent = block.holder.querySelector('.ce-block__content') as HTMLElement;
+      const blockContent = block.holder.querySelector(blockContentSelector) as HTMLElement;
       const elementToClone = blockContent || block.holder;
       const contentRect = elementToClone.getBoundingClientRect();
       const clone = elementToClone.cloneNode(true) as HTMLElement;
@@ -384,6 +389,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     event.preventDefault();
 
     if (event.dataTransfer) {
+      /* eslint-disable-next-line no-param-reassign -- DataTransfer API requires setting this property */
       event.dataTransfer.dropEffect = 'move';
     }
 
@@ -395,57 +401,75 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     }
 
     const cursorY = event.clientY;
-
-    /**
-     * Find the target block based on vertical position only.
-     * This allows dragging to work even when cursor is off to the side.
-     */
-    let targetBlock = blocks[0];
-    let targetIndex = 0;
-    let isTopHalf = true;
-
-    for (let i = 0; i < blocks.length; i++) {
-      const block = blocks[i];
-      const rect = block.holder.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-
-      if (cursorY >= rect.top && cursorY < rect.bottom) {
-        /**
-         * Cursor is within this block's vertical bounds
-         */
-        targetBlock = block;
-        targetIndex = i;
-        isTopHalf = cursorY < midpoint;
-        break;
-      } else if (cursorY < rect.top) {
-        /**
-         * Cursor is above this block - use previous block or first block
-         */
-        targetBlock = i > 0 ? blocks[i - 1] : block;
-        targetIndex = i > 0 ? i - 1 : 0;
-        isTopHalf = i === 0;
-        break;
-      } else if (i === blocks.length - 1) {
-        /**
-         * Cursor is below the last block
-         */
-        targetBlock = block;
-        targetIndex = i;
-        isTopHalf = false;
-      }
-    }
+    const dropTarget = this.findDropTarget(blocks, cursorY);
 
     /**
      * Calculate drop index
      * - Top half: insert before target block
      * - Bottom half: insert after target block
      */
-    this.dropTargetIndex = isTopHalf ? targetIndex : targetIndex + 1;
+    this.dropTargetIndex = dropTarget.isTopHalf ? dropTarget.index : dropTarget.index + 1;
 
     /**
      * Position the indicator
      */
-    this.positionIndicator(targetBlock.holder, isTopHalf);
+    this.positionIndicator(dropTarget.block.holder, dropTarget.isTopHalf);
+  }
+
+  /**
+   * Find the target block for dropping based on cursor position
+   *
+   * @param blocks - array of blocks
+   * @param cursorY - vertical cursor position
+   * @returns target block info
+   */
+  private findDropTarget(blocks: Block[], cursorY: number): { block: Block; index: number; isTopHalf: boolean } {
+    /**
+     * Check if cursor is above all blocks
+     */
+    const firstRect = blocks[0].holder.getBoundingClientRect();
+
+    if (cursorY < firstRect.top) {
+      return {
+        block: blocks[0],
+        index: 0,
+        isTopHalf: true,
+      };
+    }
+
+    /**
+     * Check if cursor is below all blocks
+     */
+    const lastBlock = blocks[blocks.length - 1];
+    const lastRect = lastBlock.holder.getBoundingClientRect();
+
+    if (cursorY >= lastRect.bottom) {
+      return {
+        block: lastBlock,
+        index: blocks.length - 1,
+        isTopHalf: false,
+      };
+    }
+
+    /**
+     * Find the block containing the cursor
+     */
+    const targetIndex = blocks.findIndex(block => {
+      const rect = block.holder.getBoundingClientRect();
+
+      return cursorY >= rect.top && cursorY < rect.bottom;
+    });
+
+    const index = targetIndex >= 0 ? targetIndex : 0;
+    const targetBlock = blocks[index];
+    const rect = targetBlock.holder.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+
+    return {
+      block: targetBlock,
+      index,
+      isTopHalf: cursorY < midpoint,
+    };
   }
 
   /**
@@ -488,7 +512,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     /**
      * Sort dragged blocks by their current position (top to bottom)
      */
-    const sortedBlocks = [...this.draggedBlocks].sort((a, b) => {
+    const sortedBlocks = [ ...this.draggedBlocks ].sort((a, b) => {
       return BlockManager.blocks.indexOf(a) - BlockManager.blocks.indexOf(b);
     });
 
@@ -510,50 +534,49 @@ export default class BlockDrag extends Module<BlockDragNodes> {
      */
     const isMovingUp = firstDraggedIndex > effectiveTarget;
     const isMovingDown = firstDraggedIndex < effectiveTarget;
-    const positionChanged = isMovingUp || isMovingDown;
 
-    if (positionChanged) {
-      if (isMovingUp) {
-        /**
-         * Moving UP: Process from top to bottom (first block in selection first)
-         * Each block is inserted at effectiveTarget + offset
-         * Example: blocks at [3,4,5] moving to position 1
-         *   - Block at 3 moves to 1 → indices shift, next block now at 3
-         *   - Block at 3 moves to 2 → indices shift, next block now at 3
-         *   - Block at 3 moves to 3 → done
-         */
-        for (let i = 0; i < sortedBlocks.length; i++) {
-          const block = sortedBlocks[i];
-          const fromIndex = BlockManager.blocks.indexOf(block);
+    if (isMovingUp) {
+      this.moveBlocksUp(sortedBlocks, effectiveTarget, BlockManager);
+    }
 
-          BlockManager.move(effectiveTarget + i, fromIndex);
-        }
-      } else {
-        /**
-         * Moving DOWN: Process from bottom to top (last block in selection first)
-         * Each block is inserted at effectiveTarget - 1 (since we're inserting BEFORE)
-         * Example: blocks at [1,2,3] moving to position 6 (effectiveTarget = 3)
-         *   - Block at 3 moves to 3 → no change in position but now after other blocks shift
-         *   - Block at 2 moves to 3 →
-         *   - Block at 1 moves to 3 →
-         *
-         * Actually simpler: move each to (effectiveTarget - 1) since array shrinks from top
-         */
-        for (let i = sortedBlocks.length - 1; i >= 0; i--) {
-          const block = sortedBlocks[i];
-          const fromIndex = BlockManager.blocks.indexOf(block);
-
-          /**
-           * When moving down, after removing a block from above,
-           * the target effectively stays at the same position.
-           * We want all blocks to end up at consecutive positions starting at effectiveTarget.
-           */
-          BlockManager.move(effectiveTarget + i, fromIndex);
-        }
-      }
+    if (isMovingDown) {
+      this.moveBlocksDown(sortedBlocks, effectiveTarget, BlockManager);
     }
 
     this.onDragEnd();
+  }
+
+  /**
+   * Move blocks upward in the editor
+   * Process from top to bottom (first block in selection first)
+   *
+   * @param sortedBlocks - blocks sorted by position
+   * @param effectiveTarget - target index after accounting for removed blocks
+   * @param BlockManager - block manager module
+   */
+  private moveBlocksUp(sortedBlocks: Block[], effectiveTarget: number, BlockManager: { blocks: Block[]; move: (toIndex: number, fromIndex: number) => void }): void {
+    sortedBlocks.forEach((block, i) => {
+      const fromIndex = BlockManager.blocks.indexOf(block);
+
+      BlockManager.move(effectiveTarget + i, fromIndex);
+    });
+  }
+
+  /**
+   * Move blocks downward in the editor
+   * Process from bottom to top (last block in selection first)
+   *
+   * @param sortedBlocks - blocks sorted by position
+   * @param effectiveTarget - target index after accounting for removed blocks
+   * @param BlockManager - block manager module
+   */
+  private moveBlocksDown(sortedBlocks: Block[], effectiveTarget: number, BlockManager: { blocks: Block[]; move: (toIndex: number, fromIndex: number) => void }): void {
+    [ ...sortedBlocks ].reverse().forEach((block, reverseIndex) => {
+      const fromIndex = BlockManager.blocks.indexOf(block);
+      const i = sortedBlocks.length - 1 - reverseIndex;
+
+      BlockManager.move(effectiveTarget + i, fromIndex);
+    });
   }
 
   /**

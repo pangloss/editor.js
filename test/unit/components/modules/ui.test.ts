@@ -450,7 +450,10 @@ describe('UI module', () => {
     it('clears selected blocks on enter when selection absent', () => {
       const { ui, editor } = createUI();
 
-      Object.assign(editor.BlockSelection, { anyBlockSelected: true, selectedBlocks: [] });
+      Object.assign(editor.BlockSelection, {
+        anyBlockSelected: true,
+        selectedBlocks: [],
+      });
       mockSelectionExists(false);
       mockSelectionCollapsed(true);
 

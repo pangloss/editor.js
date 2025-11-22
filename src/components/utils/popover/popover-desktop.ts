@@ -454,14 +454,16 @@ export class PopoverDesktop extends PopoverAbstract {
     /** List of elements available for keyboard navigation considering search query applied */
     const flippableElements = data.query === '' ? this.flippableElements : data.items.map(item => (item as PopoverItem).getElement());
 
-    if (this.flipper?.isActivated) {
-      /** Update flipper items with only visible */
-      this.flipper.deactivate();
-      this.flipper.activate(flippableElements as HTMLElement[]);
+    if (!this.flipper?.isActivated) {
+      return;
+    }
 
-      if (this.autoFocusFirstItem && flippableElements.length > 0) {
-        this.flipper.focusFirst();
-      }
+    /** Update flipper items with only visible */
+    this.flipper.deactivate();
+    this.flipper.activate(flippableElements as HTMLElement[]);
+
+    if (this.autoFocusFirstItem && flippableElements.length > 0) {
+      this.flipper.focusFirst();
     }
   };
 

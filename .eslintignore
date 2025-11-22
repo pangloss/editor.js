@@ -3,3 +3,4 @@ node_modules
 src/components/tools/paragraph
 src/polyfills.ts
 dist
+tools

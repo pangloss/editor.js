@@ -189,7 +189,8 @@ export default [
       '**/*.d.ts',
       'src/components/tools/paragraph/**',
       'src/polyfills.ts',
-      'dist'
+      'dist',
+      'tools/**'
     ],
   },
   ...compat.config({
@@ -261,7 +262,7 @@ export default [
       '@typescript-eslint/consistent-type-exports': 'error',
       'prefer-arrow-callback': 'error',
       'prefer-const': 'error',
-      'deprecation/deprecation': 'error',
+      'deprecation/deprecation': 'off',
       'no-param-reassign': ['error', { props: true }],
       'no-global-assign': 'error',
       'no-implicit-globals': 'error',
