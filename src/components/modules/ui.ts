@@ -643,6 +643,7 @@ export default class UI extends Module<UINodes> {
       Toolbar.toolbox.close();
       BlockManager.currentBlock &&
         this.Editor.Caret.setToBlock(BlockManager.currentBlock, this.Editor.Caret.positions.END);
+      _.stopEvent(event);
 
       return;
     }
@@ -650,6 +651,7 @@ export default class UI extends Module<UINodes> {
     if (this.Editor.BlockSettings.opened) {
       BlockSelection.clearSelection(event);
       this.Editor.BlockSettings.close();
+      _.stopEvent(event);
 
       return;
     }
@@ -657,6 +659,7 @@ export default class UI extends Module<UINodes> {
     if (this.Editor.InlineToolbar.opened) {
       BlockSelection.clearSelection(event);
       this.Editor.InlineToolbar.close();
+      _.stopEvent(event);
 
       return;
     }
