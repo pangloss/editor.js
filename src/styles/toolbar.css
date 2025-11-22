@@ -117,3 +117,13 @@
     display: block;
   }
 }
+
+/**
+ * Drag image container
+ * Contains cloned blocks for custom setDragImage
+ * Removed on dragend
+ */
+.ce-drag-image-container {
+  position: fixed;
+  pointer-events: none;
+}

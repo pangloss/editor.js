@@ -23,6 +23,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
       indicator: 'ce-block-drag-indicator',
       indicatorVisible: 'ce-block-drag-indicator--visible',
       blockDragging: 'ce-block--dragging',
+      dragImageContainer: 'ce-drag-image-container',
     };
   }
 
@@ -41,6 +42,12 @@ export default class BlockDrag extends Module<BlockDragNodes> {
    * Used by Toolbar to prevent opening tunes during drag
    */
   public isDragging = false;
+
+  /**
+   * Container element for the custom drag image
+   * Created on dragstart, removed on dragend
+   */
+  private dragImageContainer: HTMLElement | null = null;
 
   /**
    * Toggle read-only state
@@ -225,9 +232,140 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     });
 
     /**
+     * Create custom drag image showing all dragged blocks
+     */
+    this.createDragImage(event);
+
+    /**
      * Show indicator
      */
     this.showIndicator();
+  }
+
+  /**
+   * Create a custom drag image that shows all selected blocks
+   * The container is positioned to include both the handle and blocks,
+   * ensuring the cursor falls within the drag image bounds.
+   *
+   * @param event - dragstart event
+   */
+  private createDragImage(event: DragEvent): void {
+    if (!event.dataTransfer) {
+      return;
+    }
+
+    const settingsButton = this.Editor.Toolbar.nodes.settingsToggler;
+
+    if (!settingsButton) {
+      return;
+    }
+
+    const blocks = this.draggedBlocks;
+
+    if (blocks.length === 0) {
+      return;
+    }
+
+    /**
+     * Get handle position
+     */
+    const handleRect = settingsButton.getBoundingClientRect();
+
+    /**
+     * Calculate bounding box of all selected blocks
+     * Use the content element, not the holder (holder is full-width)
+     */
+    const firstBlockContent = blocks[0].holder.querySelector('.ce-block__content') as HTMLElement;
+    const lastBlockContent = blocks[blocks.length - 1].holder.querySelector('.ce-block__content') as HTMLElement;
+
+    const firstBlockRect = (firstBlockContent || blocks[0].holder).getBoundingClientRect();
+    const lastBlockRect = (lastBlockContent || blocks[blocks.length - 1].holder).getBoundingClientRect();
+
+    const blocksLeft = firstBlockRect.left;
+    const blocksTop = firstBlockRect.top;
+    const blocksRight = firstBlockRect.right;
+    const blocksBottom = lastBlockRect.bottom;
+
+    /**
+     * Create container inside .codex-editor for CSS inheritance
+     */
+    const container = $.make('div', this.CSS.dragImageContainer);
+
+    /**
+     * Container spans from topmost/leftmost point to bottommost/rightmost
+     * to ensure cursor always falls within the drag image bounds
+     */
+    const containerLeft = Math.min(handleRect.left, blocksLeft);
+    const containerRight = Math.max(handleRect.right, blocksRight);
+    const containerTop = Math.min(handleRect.top, blocksTop);
+    const containerBottom = Math.max(handleRect.bottom, blocksBottom);
+    const containerWidth = containerRight - containerLeft;
+    const containerHeight = containerBottom - containerTop;
+
+    container.style.cssText = `
+      position: fixed;
+      left: ${containerLeft}px;
+      top: ${containerTop}px;
+      width: ${containerWidth}px;
+      height: ${containerHeight}px;
+      pointer-events: none;
+      background: rgba(255, 255, 255, 0.01);
+    `;
+
+    /**
+     * Clone each selected block's content into the container
+     */
+    blocks.forEach(block => {
+      const blockContent = block.holder.querySelector('.ce-block__content') as HTMLElement;
+      const elementToClone = blockContent || block.holder;
+      const contentRect = elementToClone.getBoundingClientRect();
+      const clone = elementToClone.cloneNode(true) as HTMLElement;
+
+      /**
+       * Position clone absolutely within container at exact viewport position
+       */
+      clone.style.position = 'absolute';
+      clone.style.left = `${contentRect.left - containerLeft}px`;
+      clone.style.top = `${contentRect.top - containerTop}px`;
+      clone.style.width = `${contentRect.width}px`;
+      clone.style.margin = '0';
+      clone.style.animation = 'none';
+      clone.style.opacity = '1';
+      clone.style.transform = 'none';
+
+      container.appendChild(clone);
+    });
+
+    /**
+     * Append to editor wrapper for CSS inheritance
+     */
+    this.Editor.UI.nodes.wrapper.appendChild(container);
+
+    /**
+     * Force a reflow so the browser renders the container before we capture it
+     */
+    void container.offsetHeight;
+
+    /**
+     * Get actual rendered position (may differ from set values due to transforms etc)
+     */
+    const actualRect = container.getBoundingClientRect();
+
+    /**
+     * Calculate offset - where cursor is relative to container's ACTUAL top-left
+     */
+    const offsetX = event.clientX - actualRect.left;
+    const offsetY = event.clientY - actualRect.top;
+
+    /**
+     * Set the drag image
+     */
+    event.dataTransfer.setDragImage(container, offsetX, offsetY);
+
+    /**
+     * Store reference for cleanup on dragend
+     */
+    this.dragImageContainer = container;
   }
 
   /**
@@ -435,6 +573,14 @@ export default class BlockDrag extends Module<BlockDragNodes> {
      * Hide indicator
      */
     this.hideIndicator();
+
+    /**
+     * Remove drag image container
+     */
+    if (this.dragImageContainer) {
+      this.dragImageContainer.remove();
+      this.dragImageContainer = null;
+    }
 
     /**
      * Clear state
