@@ -98,7 +98,6 @@ export default class CrossBlockSelection extends Module {
     BlockSelection.clearCache();
     SelectionUtils.get()?.removeAllRanges();
 
-    this.Editor.Toolbar.close();
     this.Editor.InlineToolbar.close();
 
     block.holder.scrollIntoView({
@@ -192,11 +191,6 @@ export default class CrossBlockSelection extends Module {
 
       BlockSelection.clearCache();
       SelectionUtils.get()?.removeAllRanges();
-
-      /**
-       * Hide the Toolbar when cross-block selection starts.
-       */
-      this.Editor.Toolbar.close();
     }
 
     if (!this.lastSelectedBlock) {
@@ -214,12 +208,10 @@ export default class CrossBlockSelection extends Module {
       nextBlock.selected = true;
 
       BlockSelection.clearCache();
-      this.Editor.Toolbar.close();
     } else {
       this.lastSelectedBlock.selected = false;
 
       BlockSelection.clearCache();
-      this.Editor.Toolbar.close();
     }
 
     this.lastSelectedBlock = nextBlock;
@@ -401,9 +393,5 @@ export default class CrossBlockSelection extends Module {
       }
     }
 
-    /**
-     * Do not keep the Toolbar visible while range selection is active.
-     */
-    this.Editor.Toolbar.close();
   }
 }
