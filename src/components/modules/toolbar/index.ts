@@ -600,21 +600,7 @@ export default class Toolbar extends Module<ToolbarNodes> {
     const settingsToggler = this.nodes.settingsToggler;
 
     if (settingsToggler) {
-      this.readOnlyMutableListeners.on(settingsToggler, 'mouseup', (e) => {
-        /**
-         * Don't open tunes if a drag just occurred
-         */
-        if (this.Editor.BlockDrag.isDragging) {
-          return;
-        }
-
-        /**
-         * Stop propagation to prevent block selection clearance
-         *
-         * @see UI.documentClicked
-         */
-        e.stopPropagation();
-
+      this.readOnlyMutableListeners.on(settingsToggler, 'mouseup', () => {
         this.settingsTogglerClicked();
 
         if (this.toolboxInstance?.opened) {
