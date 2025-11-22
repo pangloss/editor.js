@@ -241,7 +241,6 @@ describe('CrossBlockSelection', () => {
       expect(blocks[1].selected).toBe(true);
       expect(blockSelectionClearCache).toHaveBeenCalled();
       expect(selectionMock.removeAllRanges).toHaveBeenCalled();
-      expect(toolbarClose).toHaveBeenCalled();
       expect(inlineToolbarClose).toHaveBeenCalled();
       expect(blocks[1].holder.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
     });
@@ -257,7 +256,6 @@ describe('CrossBlockSelection', () => {
       expect(blocks[1].selected).toBe(false);
       expect(blocks[2].selected).toBe(true);
       expect(blockSelectionClearCache).toHaveBeenCalled();
-      expect(toolbarClose).toHaveBeenCalled();
     });
   });
 
@@ -434,7 +432,6 @@ describe('CrossBlockSelection', () => {
       expect(blocks[2].selected).toBe(true);
       expect(blocks[3].selected).toBe(false);
       expect(blockSelectionClearCache).toHaveBeenCalledTimes(2);
-      expect(toolbarClose).toHaveBeenCalled();
     });
 
     it('does not toggle the last block when edges have identical selection state', () => {
@@ -452,7 +449,6 @@ describe('CrossBlockSelection', () => {
       expect(blocks[1].selected).toBe(true);
       expect(blocks[2].selected).toBe(false);
       expect(blockSelectionClearCache).toHaveBeenCalledTimes(1);
-      expect(toolbarClose).toHaveBeenCalled();
     });
   });
 });

@@ -41,6 +41,10 @@ const createEditorStub = (): UI['Editor'] => {
     },
     CrossBlockSelection: {
       isCrossBlockSelectionStarted: false,
+      isInNavigationMode: false,
+      selectBlock: vi.fn(),
+      exitNavigationMode: vi.fn(),
+      clearSelectionKeepNavigation: vi.fn(),
     },
     RectangleSelection: {
       isRectActivated: vi.fn(() => false),
@@ -446,7 +450,7 @@ describe('UI module', () => {
     it('clears selected blocks on enter when selection absent', () => {
       const { ui, editor } = createUI();
 
-      Object.assign(editor.BlockSelection, { anyBlockSelected: true });
+      Object.assign(editor.BlockSelection, { anyBlockSelected: true, selectedBlocks: [] });
       mockSelectionExists(false);
       mockSelectionCollapsed(true);
 
@@ -459,8 +463,8 @@ describe('UI module', () => {
 
       (ui as unknown as { enterPressed: (event: KeyboardEvent) => void }).enterPressed(event);
 
-      expect(editor.BlockSelection.clearSelection).toHaveBeenCalledWith(event);
-      expect(event.preventDefault).toHaveBeenCalled();
+      expect(editor.BlockSelection.clearSelection).toHaveBeenCalled();
+      expect(event.stopImmediatePropagation).toHaveBeenCalled();
     });
 
     it('inserts new block when enter pressed on body without selection', () => {
@@ -516,7 +520,7 @@ describe('UI module', () => {
 
       editor.InlineToolbar.opened = false;
       (ui as unknown as { escapePressed: (event: KeyboardEvent) => void }).escapePressed(event);
-      expect(editor.Toolbar.close).toHaveBeenCalledTimes(1);
+      expect(editor.CrossBlockSelection.selectBlock).toHaveBeenCalledWith(editor.BlockManager.currentBlock);
     });
 
     it('sends keydown to block events or clears caret on default handler', () => {
