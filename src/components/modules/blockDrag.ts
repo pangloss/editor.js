@@ -25,6 +25,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
       blockDragging: 'ce-block--dragging',
       dragImageContainer: 'ce-drag-image-container',
       blockContent: 'ce-block__content',
+      blockStretched: 'ce-block--stretched',
     };
   }
 
@@ -271,6 +272,14 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     }
 
     /**
+     * Check if any block is stretched (full-width)
+     * If so, we need different container bounds and styling
+     */
+    const hasStretchedBlock = blocks.some(block =>
+      block.holder.classList.contains(this.CSS.blockStretched)
+    );
+
+    /**
      * Get handle position
      */
     const handleRect = settingsButton.getBoundingClientRect();
@@ -297,15 +306,22 @@ export default class BlockDrag extends Module<BlockDragNodes> {
     const container = $.make('div', this.CSS.dragImageContainer);
 
     /**
-     * Container spans from topmost/leftmost point to bottommost/rightmost
-     * to ensure cursor always falls within the drag image bounds
+     * Calculate container bounds
+     * For stretched blocks: use holder bounds (full editor width)
+     * For normal blocks: span from handle to blocks
      */
-    const containerLeft = Math.min(handleRect.left, blocksLeft);
-    const containerRight = Math.max(handleRect.right, blocksRight);
+    const holderRect = blocks[0].holder.getBoundingClientRect();
+    const containerLeft = hasStretchedBlock ? holderRect.left : Math.min(handleRect.left, blocksLeft);
+    const containerRight = hasStretchedBlock ? holderRect.right : Math.max(handleRect.right, blocksRight);
     const containerTop = Math.min(handleRect.top, blocksTop);
     const containerBottom = Math.max(handleRect.bottom, blocksBottom);
     const containerWidth = containerRight - containerLeft;
     const containerHeight = containerBottom - containerTop;
+
+    /**
+     * For stretched blocks, don't add background
+     */
+    const backgroundStyle = hasStretchedBlock ? '' : 'background: rgba(255, 255, 255, 0.01);';
 
     container.style.cssText = `
       position: fixed;
@@ -314,7 +330,7 @@ export default class BlockDrag extends Module<BlockDragNodes> {
       width: ${containerWidth}px;
       height: ${containerHeight}px;
       pointer-events: none;
-      background: rgba(255, 255, 255, 0.01);
+      ${backgroundStyle}
     `;
 
     /**
@@ -322,21 +338,66 @@ export default class BlockDrag extends Module<BlockDragNodes> {
      */
     blocks.forEach(block => {
       const blockContent = block.holder.querySelector(blockContentSelector) as HTMLElement;
+      const isStretched = block.holder.classList.contains(this.CSS.blockStretched);
+
+      /**
+       * For stretched blocks, use holder for dimensions (content may not be full width)
+       * For normal blocks, use content element
+       */
       const elementToClone = blockContent || block.holder;
-      const contentRect = elementToClone.getBoundingClientRect();
+      const positioningRect = isStretched ? block.holder.getBoundingClientRect() : elementToClone.getBoundingClientRect();
       const clone = elementToClone.cloneNode(true) as HTMLElement;
 
       /**
        * Position clone absolutely within container at exact viewport position
        */
+      const cloneLeft = positioningRect.left - containerLeft;
+      const cloneTop = positioningRect.top - containerTop;
+      const cloneWidth = positioningRect.width;
+
       clone.style.position = 'absolute';
-      clone.style.left = `${contentRect.left - containerLeft}px`;
-      clone.style.top = `${contentRect.top - containerTop}px`;
-      clone.style.width = `${contentRect.width}px`;
+      clone.style.left = `${cloneLeft}px`;
+      clone.style.top = `${cloneTop}px`;
+      clone.style.width = `${cloneWidth}px`;
+      clone.style.maxWidth = isStretched ? 'none' : '';
       clone.style.margin = '0';
       clone.style.animation = 'none';
+      clone.style.transition = 'none';
       clone.style.opacity = '1';
       clone.style.transform = 'none';
+
+      /**
+       * For images, replace cloned img with a canvas containing the already-loaded original
+       * This avoids the issue where cloned images need to re-decode
+       */
+      const originalImages = elementToClone.querySelectorAll('img');
+      const clonedImages = clone.querySelectorAll('img');
+
+      originalImages.forEach((origImg, idx) => {
+        const clonedImg = clonedImages[idx] as HTMLImageElement | undefined;
+
+        if (!clonedImg || !origImg.complete || origImg.naturalWidth === 0) {
+          return;
+        }
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          return;
+        }
+
+        const origRect = origImg.getBoundingClientRect();
+
+        canvas.width = origRect.width;
+        canvas.height = origRect.height;
+        canvas.style.width = `${origRect.width}px`;
+        canvas.style.height = `${origRect.height}px`;
+
+        ctx.drawImage(origImg, 0, 0, origRect.width, origRect.height);
+
+        clonedImg.replaceWith(canvas);
+      });
 
       container.appendChild(clone);
     });
@@ -366,6 +427,12 @@ export default class BlockDrag extends Module<BlockDragNodes> {
      * Set the drag image
      */
     event.dataTransfer.setDragImage(container, offsetX, offsetY);
+
+    /**
+     * Move container off-screen after browser captures it for the drag image
+     * We can't hide it (browser needs it visible), but we can position it off-screen
+     */
+    container.style.left = '-9999px';
 
     /**
      * Store reference for cleanup on dragend
