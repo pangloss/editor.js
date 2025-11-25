@@ -359,6 +359,10 @@ export default class Toolbox extends EventsDispatcher<ToolboxEventMap> {
    * @param {string} shortcut - shortcut according to the ShortcutData Module format
    */
   private enableShortcutForTool(toolName: string, shortcut: string): void {
+    // Remove any existing shortcut first to handle Turbo cache race conditions
+    // where the previous editor's shortcuts weren't cleaned up before re-initialization
+    Shortcuts.remove(this.api.ui.nodes.redactor, shortcut);
+
     Shortcuts.add({
       name: shortcut,
       on: this.api.ui.nodes.redactor,
