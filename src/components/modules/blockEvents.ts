@@ -298,6 +298,13 @@ export default class BlockEvents extends Module {
    * @param {KeyboardEvent} event - keydown
    */
   private enter(event: KeyboardEvent): void {
+    /**
+     * Skip if event was already handled (prevents duplicate block creation
+     * when the same keydown event is processed multiple times)
+     */
+    if (event.defaultPrevented) {
+      return;
+    }
     const { BlockManager, UI } = this.Editor;
     const currentBlock = BlockManager.currentBlock;
 
